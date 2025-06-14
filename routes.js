@@ -132,12 +132,12 @@ router.post('/:tenantId/bookings', (req, res) => {
 
 
 // DELETE /api/:tenantId/bookings/:id - Cancel booking
-router.delete('/:tenantId/bookings/:id', (req, res) => {
-  const { id } = req.params;
-  const bookingIndex = bookings.findIndex(b => b.id === id && b.tenantId === req.tenant.id);
+router.delete('/:tenantId/bookings/:id', authMiddleware, findTenant, (req, res) => {
+  const { id, tenantId } = req.params;
+  const bookingIndex = bookings.findIndex(b => b.id === id && b.tenantId === tenantId);
 
   if (bookingIndex === -1) {
-    return res.status(404).json({ message: 'Booking not found' });
+    return res.status(404).json({ message: 'Booking not found or does not belong to this tenant' });
   }
 
   bookings.splice(bookingIndex, 1);
