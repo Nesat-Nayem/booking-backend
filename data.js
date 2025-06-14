@@ -5,8 +5,7 @@ let tenants = [
     domain: 'innovatecorp.com',
     settings: { maxBookingHours: 4, bufferMinutes: 15 },
     branding: {
-      primaryColor: '#4CAF50',
-      logoUrl: '/logos/innovate-corp.png'
+      primaryColor: '#4CAF50'
     }
   },
   {
@@ -15,8 +14,7 @@ let tenants = [
     domain: 'synergysolutions.com',
     settings: { maxBookingHours: 8, bufferMinutes: 30 },
     branding: {
-      primaryColor: '#2196F3',
-      logoUrl: '/logos/synergy-solutions.png'
+      primaryColor: '#2196F3'
     }
   }
 ];
