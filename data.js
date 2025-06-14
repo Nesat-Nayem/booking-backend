@@ -8,6 +8,7 @@ let tenants = [
       primaryColor: '#4CAF50'
     }
   },
+  
   {
     id: 'tenant-2',
     name: 'Synergy Solutions',

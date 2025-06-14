@@ -90,6 +90,7 @@ router.post('/:tenantId/bookings', (req, res) => {
     res.status(201).json(newBooking);
 });
 
+
 // DELETE /api/:tenantId/bookings/:id - Cancel booking
 router.delete('/:tenantId/bookings/:id', (req, res) => {
   const { id } = req.params;

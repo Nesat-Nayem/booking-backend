@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { users, tenants } = require('./data');
 
 const router = express.Router();
-const JWT_SECRET = 'your-super-secret-key-that-should-be-in-env'; // Use an environment variable in a real app
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-that-should-be-in-env';
 
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
@@ -58,5 +58,4 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
-
-module.exports = { router, authMiddleware }; 
+module.exports = { router, authMiddleware };
