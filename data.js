@@ -3,13 +3,38 @@ let tenants = [
     id: 'tenant-1',
     name: 'Innovate Corp',
     domain: 'innovatecorp.com',
-    settings: { maxBookingHours: 4, bufferMinutes: 15 }
+    settings: { maxBookingHours: 4, bufferMinutes: 15 },
+    branding: {
+      primaryColor: '#4CAF50',
+      logoUrl: '/logos/innovate-corp.png'
+    }
   },
   {
     id: 'tenant-2',
     name: 'Synergy Solutions',
     domain: 'synergysolutions.com',
-    settings: { maxBookingHours: 8, bufferMinutes: 30 }
+    settings: { maxBookingHours: 8, bufferMinutes: 30 },
+    branding: {
+      primaryColor: '#2196F3',
+      logoUrl: '/logos/synergy-solutions.png'
+    }
+  }
+];
+
+let users = [
+  {
+    id: 'user-1',
+    email: 'admin@innovatecorp.com',
+    password: 'password123', // In a real app, this would be hashed
+    tenantId: 'tenant-1',
+    name: 'Admin Innovate'
+  },
+  {
+    id: 'user-2',
+    email: 'admin@synergysolutions.com',
+    password: 'password456',
+    tenantId: 'tenant-2',
+    name: 'Admin Synergy'
   }
 ];
 
@@ -71,5 +96,6 @@ let bookings = [
 module.exports = {
   tenants,
   resources,
-  bookings
+  bookings,
+  users
 }; 

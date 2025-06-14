@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 let { tenants, resources, bookings } = require('./data');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware } = require('./auth');
 
 // Middleware to find tenant
 const findTenant = (req, res, next) => {
@@ -13,25 +14,28 @@ const findTenant = (req, res, next) => {
   next();
 };
 
+// All routes below are now protected
+router.use('/:tenantId', authMiddleware, findTenant);
+
 // GET /api/tenants - List all tenants
 router.get('/tenants', (req, res) => {
   res.json(tenants);
 });
 
 // GET /api/:tenantId/resources - List tenant's resources
-router.get('/:tenantId/resources', findTenant, (req, res) => {
+router.get('/:tenantId/resources', (req, res) => {
   const tenantResources = resources.filter(r => r.tenantId === req.params.tenantId);
   res.json(tenantResources);
 });
 
 // GET /api/:tenantId/bookings - Get tenant's bookings
-router.get('/:tenantId/bookings', findTenant, (req, res) => {
+router.get('/:tenantId/bookings', (req, res) => {
   const tenantBookings = bookings.filter(b => b.tenantId === req.params.tenantId);
   res.json(tenantBookings);
 });
 
 // POST /api/:tenantId/bookings - Create new booking
-router.post('/:tenantId/bookings', findTenant, (req, res) => {
+router.post('/:tenantId/bookings', (req, res) => {
     const { resourceId, userEmail, userName, startTime, endTime, attendees } = req.body;
     const { tenant } = req;
     const resource = resources.find(r => r.id === resourceId && r.tenantId === tenant.id);
@@ -87,7 +91,7 @@ router.post('/:tenantId/bookings', findTenant, (req, res) => {
 });
 
 // DELETE /api/:tenantId/bookings/:id - Cancel booking
-router.delete('/:tenantId/bookings/:id', findTenant, (req, res) => {
+router.delete('/:tenantId/bookings/:id', (req, res) => {
   const { id } = req.params;
   const bookingIndex = bookings.findIndex(b => b.id === id && b.tenantId === req.tenant.id);
 
@@ -98,6 +102,5 @@ router.delete('/:tenantId/bookings/:id', findTenant, (req, res) => {
   bookings.splice(bookingIndex, 1);
   res.status(204).send();
 });
-
 
 module.exports = router; 
