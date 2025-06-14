@@ -4,6 +4,12 @@ let { tenants, resources, bookings } = require('./data');
 const { v4: uuidv4 } = require('uuid');
 const { authMiddleware } = require('./auth');
 
+// PUBLIC ROUTE
+// GET /api/tenants - List all tenants
+router.get('/tenants', (req, res) => {
+  res.json(tenants.map(t => ({ id: t.id, name: t.name, domain: t.domain })));
+});
+
 // Middleware to find tenant
 const findTenant = (req, res, next) => {
   const tenant = tenants.find(t => t.id === req.params.tenantId);
@@ -16,11 +22,6 @@ const findTenant = (req, res, next) => {
 
 // All routes below are now protected
 router.use('/:tenantId', authMiddleware, findTenant);
-
-// GET /api/tenants - List all tenants
-router.get('/tenants', (req, res) => {
-  res.json(tenants);
-});
 
 // GET /api/:tenantId/resources - List tenant's resources
 router.get('/:tenantId/resources', (req, res) => {
@@ -68,8 +69,47 @@ router.post('/:tenantId/bookings', (req, res) => {
     });
 
     if (overlappingBooking) {
-        return res.status(409).json({ message: 'Booking conflict detected. The resource is already booked for the selected time.' });
+      // --- Smart Conflict Detector ---
+      const suggestions = [];
+      let lastEndTime = new Date(overlappingBooking.endTime);
+      const durationMillis = end.getTime() - start.getTime();
+
+      while (suggestions.length < 3) {
+        // The next potential start time is after the last conflicting booking ends, plus a buffer.
+        const suggestionStart = new Date(lastEndTime.getTime() + bufferMillis);
+        const suggestionEnd = new Date(suggestionStart.getTime() + durationMillis);
+
+        // Check if this new potential slot conflicts with any booking.
+        const conflict = bookings.find(b => {
+          if (b.resourceId !== resourceId) return false;
+          const existingStart = new Date(b.startTime);
+          const existingEnd = new Date(b.endTime);
+          
+          // A conflict exists if the proposed slot overlaps with an existing booking's reserved time.
+          // Reserved time = [existingStart, existingEnd + buffer]
+          return suggestionStart < new Date(existingEnd.getTime() + bufferMillis) && suggestionEnd > existingStart;
+        });
+
+        if (conflict) {
+          // If we hit another conflict, we have to jump our search to the end of that new conflicting booking.
+          lastEndTime = new Date(conflict.endTime);
+        } else {
+          // No conflict, so we found a valid suggestion.
+          suggestions.push({
+            startTime: suggestionStart.toISOString(),
+            endTime: suggestionEnd.toISOString()
+          });
+          // The next search can start after the slot we just found.
+          lastEndTime = suggestionEnd;
+        }
+      }
+
+      return res.status(409).json({
+        message: 'Booking conflict detected. The resource is already booked for the selected time.',
+        suggestions
+      });
     }
+    // --- End of Conflict Detector ---
     
     const totalCost = durationHours * resource.hourlyRate;
     const newBooking = {
