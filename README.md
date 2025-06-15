@@ -31,12 +31,7 @@ GOOGLE_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 
 ## Setup and Running
 
-1.  **Navigate to the backend directory:**
-    ```bash
-    cd backend
-    ```
-
-2.  **Install dependencies:**
+2.  **Clone Repository git clone https://github.com/Nesat-Nayem/booking-backend.git And Install dependencies:**
     ```bash
     npm install
     ```
