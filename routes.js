@@ -49,10 +49,41 @@ router.post('/:tenantId/ai/assistant', authMiddleware, findTenant, async (req, r
             if (!resource) {
                 return res.status(400).json({ message: "AI suggested a resource that doesn't exist." });
             }
-            
-            // The AI should have already checked for availability, but we can double-check here if needed.
 
-            const durationHours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60);
+            if (!resource.isActive) {
+                return res.status(400).json({ message: `The resource "${resource.name}" is currently inactive and cannot be booked.` });
+            }
+            
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+
+            // --- Server-Side Conflict Validation ---
+            const bufferMillis = tenant.settings.bufferMinutes * 60 * 1000;
+            const overlappingBooking = bookings.find(b => {
+                if (b.resourceId !== resourceId) return false;
+                const existingStart = new Date(b.startTime).getTime();
+                const existingEnd = new Date(b.endTime).getTime();
+                // A conflict exists if the AI's proposed time overlaps with another booking's time, including its buffer.
+                return (start.getTime() < existingEnd + bufferMillis && end.getTime() + bufferMillis > existingStart);
+            });
+
+            if (overlappingBooking) {
+                return res.status(409).json({ 
+                    message: `I apologize, but it appears the time slot the AI selected for "${resource.name}" was taken just now. Please try asking again.`
+                });
+            }
+            // --- End Validation ---
+
+            const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+
+            if (durationHours < 0.5) {
+                return res.status(400).json({ message: 'AI booking suggestion is too short. Bookings must be at least 30 minutes long.' });
+            }
+
+            if (durationHours > tenant.settings.maxBookingHours) {
+                return res.status(400).json({ message: `AI booking suggestion is too long. Bookings cannot be longer than ${tenant.settings.maxBookingHours} hours.` });
+            }
+            
             const totalCost = durationHours * resource.hourlyRate;
 
             const newBooking = {
@@ -61,8 +92,8 @@ router.post('/:tenantId/ai/assistant', authMiddleware, findTenant, async (req, r
                 resourceId,
                 userEmail: currentUser.email,
                 userName: currentUser.name,
-                startTime,
-                endTime,
+                startTime: start.toISOString(),
+                endTime: end.toISOString(),
                 attendees: attendees || 1,
                 status: 'confirmed',
                 totalCost,
@@ -72,8 +103,8 @@ router.post('/:tenantId/ai/assistant', authMiddleware, findTenant, async (req, r
             bookings.push(newBooking);
             return res.status(201).json({ booking: newBooking, resourceName: resource.name });
 
-        } else { // Default to 'answer' action
-            return res.status(200).json({ message: result.message });
+        } else { // Default to 'answer' or 'suggest' action
+            return res.status(200).json(result); // Pass along 'suggest' actions to frontend
         }
     } catch (error) {
         console.error("Error in AI assistant:", error);
