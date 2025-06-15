@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config(); // Load environment variables
 const apiRoutes = require('./routes');
 const { router: authRoutes } = require('./auth');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
 
 app.use(cors({
   origin: '*',

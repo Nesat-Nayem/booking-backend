@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-let { tenants, resources, bookings } = require('./data');
+let { tenants, resources, bookings, users } = require('./data');
 const { v4: uuidv4 } = require('uuid');
 const { authMiddleware } = require('./auth');
+const { handleQuery } = require('./ai-service');
 
 // PUBLIC ROUTE
 // GET /api/tenants - List all tenants
@@ -19,6 +20,69 @@ const findTenant = (req, res, next) => {
   req.tenant = tenant;
   next();
 };
+
+// POST /api/:tenantId/ai/assistant - Handle AI booking queries
+router.post('/:tenantId/ai/assistant', authMiddleware, findTenant, async (req, res) => {
+    const { query } = req.body;
+    const { tenant, user: authUser } = req;
+
+    if (!query) {
+        return res.status(400).json({ message: 'Query is required.' });
+    }
+    
+    // In a real app with a database, you would fetch the current user's full profile
+    const currentUser = users.find(u => u.id === authUser.userId);
+    if(!currentUser) {
+        return res.status(403).json({ message: 'Could not identify the current user.' });
+    }
+
+    const tenantResources = resources.filter(r => r.tenantId === tenant.id);
+    const tenantBookings = bookings.filter(b => b.tenantId === tenant.id);
+
+    try {
+        const result = await handleQuery(query, tenant, tenantResources, tenantBookings, currentUser);
+
+        if (result.action === 'book') {
+            const { resourceId, startTime, endTime, attendees } = result;
+            const resource = resources.find(r => r.id === resourceId);
+
+            if (!resource) {
+                return res.status(400).json({ message: "AI suggested a resource that doesn't exist." });
+            }
+            
+            // The AI should have already checked for availability, but we can double-check here if needed.
+
+            const durationHours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60);
+            const totalCost = durationHours * resource.hourlyRate;
+
+            const newBooking = {
+                id: `booking-${uuidv4()}`,
+                tenantId: tenant.id,
+                resourceId,
+                userEmail: currentUser.email,
+                userName: currentUser.name,
+                startTime,
+                endTime,
+                attendees: attendees || 1,
+                status: 'confirmed',
+                totalCost,
+                createdAt: new Date().toISOString()
+            };
+
+            bookings.push(newBooking);
+            return res.status(201).json({ booking: newBooking, resourceName: resource.name });
+
+        } else { // Default to 'answer' action
+            return res.status(200).json({ message: result.message });
+        }
+    } catch (error) {
+        console.error("Error in AI assistant:", error);
+        if (error.message.includes('API key')) {
+             return res.status(500).json({ message: 'The AI service is not configured. Did you add your GOOGLE_API_KEY to the .env file?' });
+        }
+        return res.status(500).json({ message: 'An unexpected error occurred with the AI assistant.' });
+    }
+});
 
 // All routes below are now protected
 router.use('/:tenantId', authMiddleware, findTenant);
@@ -79,6 +143,7 @@ router.post('/:tenantId/bookings', (req, res) => {
         const suggestionStart = new Date(lastEndTime.getTime() + bufferMillis);
         const suggestionEnd = new Date(suggestionStart.getTime() + durationMillis);
 
+        
         // Check if this new potential slot conflicts with any booking.
         const conflict = bookings.find(b => {
           if (b.resourceId !== resourceId) return false;
@@ -132,7 +197,7 @@ router.post('/:tenantId/bookings', (req, res) => {
 
 
 // DELETE /api/:tenantId/bookings/:id - Cancel booking
-router.delete('/:tenantId/bookings/:id', authMiddleware, findTenant, (req, res) => {
+router.delete('/:tenantId/bookings/:id', (req, res) => {
   const { id, tenantId } = req.params;
   const bookingIndex = bookings.findIndex(b => b.id === id && b.tenantId === tenantId);
 

@@ -9,6 +9,7 @@ let tenants = [
     }
   },
   
+  
   {
     id: 'tenant-2',
     name: 'Synergy Solutions',
